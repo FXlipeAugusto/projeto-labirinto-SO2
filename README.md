@@ -1,9 +1,15 @@
 # projeto-labirinto-SO2
 Mini Hackathon de Código: O Labirinto dos Processos
 
+# Alunos:
+
+Ana Shara
+Felipe Augusto
+Maximus Rosa
+Mucio Moura
 
 
-
+# Enunciado
 Organizem-se em grupos de 3 ou 4 integrantes para desenvolver uma aplicação que simule processos percorrendo um labirinto.
 
 Antes de iniciar a atividade, consultem novamente o slide “O Labirinto dos Processos”, localizado ao final da Aula 03, pois ele apresenta as orientações e sugestões para o desenvolvimento da solução.
