@@ -3,10 +3,10 @@ Mini Hackathon de Código: O Labirinto dos Processos
 
 # Alunos:
 
-Ana Shara
-Felipe Augusto
-Maximus Rosa
-Mucio Moura
+Ana Shara, 
+ Felipe Augusto, 
+ Maximus Rosa, 
+ Mucio Moura,
 
 
 # Enunciado
