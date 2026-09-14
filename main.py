@@ -1,28 +1,62 @@
+import random
+import time
+
 from processos import processo
 from gerenciador import GerenciadorProcessos
 from labirinto import labirinto
 from comunicacao import Comunicacao
-import time
+from interface import rodar_interface
 
 
-def executar_processo(processo):
+DIRECOES = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
-    print(f"{processo.nome} iniciado")
 
-    for i in range(3):
+def notificar(fila, p):
+    fila.put({
+        "pid": p.id,
+        "nome": p.nome,
+        "posicao": p.posicao,
+        "estado": p.estado,
+        "tarefasConcluidas": p.tarefasConcluidas,
+        "totalTarefas": len(p.tarefas),
+    })
 
-        processo.executarTarefas()
+
+def executar_processo(p, mapa, fila):
+
+    p.mudarEstado("Executando")
+    notificar(fila, p)
+
+    print(f"{p.nome} iniciado")
+
+    while not mapa.chegouSaida(p.posicao) and not p.todasTarefasConcluidas():
+
+        # simula trabalho: uma tarefa concluída a cada passo dentro do labirinto
+        p.executarTarefas()
 
         print(
-            f"{processo.nome} executando tarefa "
-            f"{processo.tarefasConcluidas}/{len(processo.tarefas)}"
+            f"{p.nome} executando tarefa "
+            f"{p.tarefasConcluidas}/{len(p.tarefas)}"
         )
 
-        time.sleep(1)
+        # tenta andar para uma célula vizinha válida (movimento aleatório simples)
+        linha, coluna = p.posicao
+        direcoes = DIRECOES[:]
+        random.shuffle(direcoes)
 
-    processo.mudarEstado("Terminado")
+        for dl, dc in direcoes:
+            nova_posicao = (linha + dl, coluna + dc)
+            if mapa.mover(nova_posicao[0], nova_posicao[1]):
+                p.moverPara(nova_posicao)
+                break
 
-    print(f"{processo.nome} terminou")
+        notificar(fila, p)
+        time.sleep(0.3)
+
+    p.mudarEstado("Terminado")
+    notificar(fila, p)
+
+    print(f"{p.nome} terminou")
 
 
 def main():
@@ -45,7 +79,8 @@ def main():
 
         gerenciador.criarProcesso(
             p,
-            executar_processo
+            executar_processo,
+            (mapa, comunicacao.fila)
         )
 
     print("Iniciando processos...\n")
@@ -54,7 +89,10 @@ def main():
 
         gerenciador.iniciarProcesso(p.id)
 
-    print("\nTodos os processos foram iniciados.")
+    print("\nTodos os processos foram iniciados.\n")
+
+    # a interface roda no processo principal, lendo as atualizações da fila
+    rodar_interface(mapa, comunicacao, [p.id for p in processos])
 
     for p in processos:
 

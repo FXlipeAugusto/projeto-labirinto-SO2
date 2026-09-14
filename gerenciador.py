@@ -10,13 +10,13 @@ class GerenciadorProcessos:
     def __init__(self):
         self.processos = {}
 
-    def criarProcesso(self, processo, funcao):
+    def criarProcesso(self, processo, funcao, args_extra=()):
         ## process é uma instancia DIRETAMENTE gerenciada pelo SO, com espaço de memória,
         ## recursos e interpretador próprios
 
         p = Process(
             target=funcao, ## target é a função que o processo vai executar. 
-            args=(processo,) ## argumentos a ser passados para a "função"
+            args=(processo, *args_extra) ## argumentos a ser passados para a "função"
         )
 
         self.processos[processo.id] = p

@@ -29,3 +29,7 @@ class processo:
     def mudarEstado(self, estado):
 
         self.estado = estado
+
+    def moverPara(self, nova_posicao):
+
+        self.posicao = nova_posicao
