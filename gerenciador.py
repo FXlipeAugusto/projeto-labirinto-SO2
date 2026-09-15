@@ -4,10 +4,10 @@ class GerenciadorProcessos:
     def __init__(self):
         self.processos = {}
 
-    def criarProcesso(self, processo_obj, funcao, comunicacao):
+    def criarProcesso(self, processo_obj, funcao, comunicacao, mapa):
         p = Process(
             target=funcao,
-            args=(processo_obj, comunicacao)
+            args=(processo_obj, comunicacao, mapa)
         )
         self.processos[processo_obj.id] = p
         return p

@@ -6,10 +6,10 @@ from gerenciador import GerenciadorProcessos
 from labirinto import labirinto
 from comunicacao import Comunicacao
 
-def executar_processo(proc, comunicacao):
+def executar_processo(proc, comunicacao, mapa):
     comunicacao.enviar(f"[IPC] {proc.nome} iniciado.")
     for i in range(len(proc.tarefas)):
-        proc.executarTarefas()
+        proc.executarTarefas(mapa)
         comunicacao.enviar(f"[IPC] {proc.nome}: tarefa {proc.tarefasConcluidas}/{len(proc.tarefas)}")
         time.sleep(1.2)
     
@@ -51,17 +51,19 @@ def main():
     pos_agente = [1, 2]
     
     sub_processos = [
-        processo(2, "Kernel (K1)", (1, 16), ["Inic. Memória", "Drivers", "Syscalls"]),
-        processo(3, "App (A1)", (5, 25), ["Render GUI", "Input Poll", "Buffer Clear"]),
-        processo(4, "Driver (D1)", (9, 23), ["Check Hardware", "I/O Sync", "Interrupts"])
+        processo(2, "Kernel (K1)", (1, 18), ["Inic. Memória", "Drivers", "Syscalls"]),
+        processo(3, "App (A1)", (5, 26), ["Render GUI", "Input Poll", "Buffer Clear"]),
+        processo(4, "Driver (D1)", (9, 24), ["Check Hardware", "I/O Sync", "Interrupts"])
     ]
 
     for p in sub_processos:
-        gerenciador.criarProcesso(p, executar_processo, comunicacao)
+        if not hasattr(p, 'iniciado'):
+            p.iniciado = False
+        gerenciador.criarProcesso(p, executar_processo, comunicacao, mapa)
 
     logs = ["=== Terminal de Log IPC ==="]
     jogo_rodando = True
-    vitoria = False  # Flag para bloquear movimentação ao final
+    vitoria = False
 
     while jogo_rodando:
         relogio.tick(30)
@@ -70,7 +72,7 @@ def main():
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 jogo_rodando = False
-            elif evento.type == pygame.KEYDOWN and not vitoria:  # Bloqueia movimentação se vitoria == True
+            elif evento.type == pygame.KEYDOWN and not vitoria:
                 nova_linha, nova_coluna = pos_agente[0], pos_agente[1]
                 
                 if evento.key in (pygame.K_w, pygame.K_UP):
@@ -107,12 +109,12 @@ def main():
             msg = comunicacao.receber()
 
         # --- 4. Checagem de Condição de Vitória ---
-        if not vitoria and mapa.chegouSaida(tuple(pos_agente), sub_processos):
+        todos_terminados = all(p.estado == "Terminado" for p in sub_processos)
+        if not vitoria and mapa.chegouSaida(tuple(pos_agente)) and todos_terminados:
             vitoria = True
             logs.append("[SISTEMA] Saída liberada!")
             logs.append("[SISTEMA] Simulação Concluída com Sucesso.")
 
-        # Manter histórico de logs dentro do limite vertical da janela
         max_linhas_visiveis = (ALTURA_JANELA - 20) // 18
         if len(logs) > max_linhas_visiveis:
             logs = [logs[0]] + logs[-(max_linhas_visiveis - 1):]
@@ -127,36 +129,13 @@ def main():
                 char = mapa.mapa[r][c]
                 
                 if char == "#":
-                    tela.blit(texturas['parede'], rect)
+                    pygame.draw.rect(tela, (50, 50, 60), rect)
                 elif (r, c) == mapa.saida:
-                    tela.blit(texturas['saida'], rect)
+                    pygame.draw.rect(tela, (50, 200, 50), rect)
                 else:
-                    tela.blit(texturas['chao'], rect)
+                    pygame.draw.rect(tela, (200, 200, 200), rect, 1)
 
-        # Renderizar Subprocessos Estáticos
-        for p in sub_processos:
-            pr, pc = p.posicao
-            rect_proc = pygame.Rect(pc * TAM_CELULA, pr * TAM_CELULA, TAM_CELULA, TAM_CELULA)
-            
-            if p.estado == "Terminado":
-                tela.blit(texturas['ossos'], rect_proc)
-            else:
-                letra_proc = p.nome[0]  # Pega 'K', 'A' ou 'D'
-                tela.blit(texturas[letra_proc], rect_proc)
-                
-                # Se o processo foi disparado (em execução), desenha uma borda amarela em volta para destacar
-                if p.iniciado:
-                    pygame.draw.rect(tela, (220, 150, 30), rect_proc, 3)
-                
-                # Opcional: Manter a letra em cima da imagem
-                txt = fonte.render(letra_proc, True, (255, 255, 255))
-                tela.blit(txt, (pc * TAM_CELULA + 10, pr * TAM_CELULA + 8))
-
-        # Renderizar Agente Principal (P1)
-        rect_agente = pygame.Rect(pos_agente[1] * TAM_CELULA, pos_agente[0] * TAM_CELULA, TAM_CELULA, TAM_CELULA)
-        tela.blit(texturas['agente'], rect_agente)
-
-        # Renderizar Subprocessos Estáticos
+        # Renderizar Subprocessos
         for p in sub_processos:
             pr, pc = p.posicao
             rect_proc = pygame.Rect(pc * TAM_CELULA, pr * TAM_CELULA, TAM_CELULA, TAM_CELULA)
@@ -166,6 +145,10 @@ def main():
             else:
                 cor_proc = (220, 150, 30) if p.iniciado else (100, 100, 250)
                 pygame.draw.rect(tela, cor_proc, rect_proc)
+                
+                if p.iniciado:
+                    pygame.draw.rect(tela, (255, 255, 0), rect_proc, 2)
+                    
                 txt = fonte.render(p.nome[0], True, (255, 255, 255))
                 tela.blit(txt, (pc * TAM_CELULA + 10, pr * TAM_CELULA + 8))
 
@@ -173,18 +156,14 @@ def main():
         rect_agente = pygame.Rect(pos_agente[1] * TAM_CELULA, pos_agente[0] * TAM_CELULA, TAM_CELULA, TAM_CELULA)
         pygame.draw.rect(tela, (230, 40, 40), rect_agente)
 
-        # Renderizar Painel de Log com recorte para não estourar a largura
+        # Renderizar Painel de Log Lateral
         rect_painel = pygame.Rect(LARGURA_GRID, 0, LARGURA_PAINEL, ALTURA_JANELA)
         pygame.draw.rect(tela, (10, 14, 20), rect_painel)
         pygame.draw.line(tela, (80, 80, 100), (LARGURA_GRID, 0), (LARGURA_GRID, ALTURA_JANELA), 2)
 
         y_offset = 10
         for log in logs:
-            # Trunca texto se for maior que a largura do painel
-            texto_formatado = log
-            if len(texto_formatado) > 38:
-                texto_formatado = texto_formatado[:35] + "..."
-            
+            texto_formatado = log if len(log) <= 38 else log[:35] + "..."
             surf_texto = fonte.render(texto_formatado, True, (0, 230, 120))
             tela.blit(surf_texto, (LARGURA_GRID + 10, y_offset))
             y_offset += 18

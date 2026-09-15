@@ -1,38 +1,40 @@
 class labirinto:
+
     def __init__(self):
         self.mapa = [
             "###############################",
-            "# P1        #   # K           #",
+            "# P1    #       # K           #",
             "##### # # ##### ##### #########",
             "#     # #     #       #       #",
             "# ##### ##### ####### # ##### #",
             "#       #     #       #   A   #",
             "####### # ### # ##### ##### ###",
-            "#       # #         #       # #",
+            "#       # #   #     #       # #",
             "# ##### # ### ##### ####### # #",
-            "#   K   #     K #       D     #",
+            "#   K   #       #       D     #",
             "##### ####### ##### ###########",
             "#       #     #       #       #",
             "# ##### # ### ####### # ##### #",
-            "#       #       #            S#",
+            "#       #       #       #    S#",
             "###############################"
         ]
         self.linhas = len(self.mapa)
         self.colunas = len(self.mapa[0])
+
         self.saida = (13, 29)
 
     def mover(self, linha, coluna):
-        # Verifica as dimensões do labirinto
         if linha < 0 or linha >= self.linhas:
             return False
-
         if coluna < 0 or coluna >= self.colunas:
             return False
-
-        # Garante que QUALQUER caractere diferente de '#' seja transitável (incluindo K, A, D, S)
         return self.mapa[linha][coluna] != "#"
 
-    def chegouSaida(self, posicao, processos_ativos):
-        # Retorna True se a posição atual for a saída E todos os processos estiverem concluídos (ativo == False)
-        todos_concluidos = all(not p.ativo for p in processos_ativos)
-        return posicao == self.saida and todos_concluidos
+    def obter_conteudo(self, linha, coluna):
+        """Retorna o caractere na posição (linha, coluna) do mapa."""
+        if 0 <= linha < self.linhas and 0 <= coluna < self.colunas:
+            return self.mapa[linha][coluna]
+        return None
+
+    def chegouSaida(self, posicao):
+        return posicao == self.saida
