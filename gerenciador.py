@@ -1,35 +1,25 @@
-## Querido professor e colegas de ofício trabalhístico de SO II, atenção ao seguinte detalhe:
-## Em python, não usaremos diretamente as operações clássicas de gerencia de processor, como
-## fork(), create(), wait() etc...
-## isso pq a biblioteca MULTIPROCESSING já traz essas funções indiretamente
-
 from multiprocessing import Process
-
 
 class GerenciadorProcessos:
     def __init__(self):
         self.processos = {}
 
-    def criarProcesso(self, processo, funcao):
-        ## process é uma instancia DIRETAMENTE gerenciada pelo SO, com espaço de memória,
-        ## recursos e interpretador próprios
-
+    def criarProcesso(self, processo_obj, funcao, comunicacao):
         p = Process(
-            target=funcao, ## target é a função que o processo vai executar. 
-            args=(processo,) ## argumentos a ser passados para a "função"
+            target=funcao,
+            args=(processo_obj, comunicacao)
         )
-
-        self.processos[processo.id] = p
+        self.processos[processo_obj.id] = p
         return p
 
     def iniciarProcesso(self, pid):
-        processo = self.processos[pid]
-        processo.start()
+        if pid in self.processos and not self.processos[pid].is_alive():
+            self.processos[pid].start()
 
     def finalizarProcesso(self, pid):
-        processo = self.processos[pid]
-        processo.terminate()
+        if pid in self.processos:
+            self.processos[pid].terminate()
 
     def esperarProcesso(self, pid):
-        processo = self.processos[pid]
-        processo.join()
+        if pid in self.processos:
+            self.processos[pid].join()

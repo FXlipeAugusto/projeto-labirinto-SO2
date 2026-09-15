@@ -1,8 +1,6 @@
 from multiprocessing import Queue
-## Queue traz a implementação das filas entre processos
 
 class Comunicacao:
-
     def __init__(self):
         self.fila = Queue()
 
@@ -12,5 +10,4 @@ class Comunicacao:
     def receber(self):
         if not self.fila.empty():
             return self.fila.get()
-
         return None
