@@ -6,7 +6,6 @@ from gerenciador import GerenciadorProcessos
 from labirinto import labirinto
 from comunicacao import Comunicacao
 
-# Função executada concorrentemente por cada subprocesso
 def executar_processo(proc, comunicacao):
     comunicacao.enviar(f"[IPC] {proc.nome} iniciado.")
     for i in range(len(proc.tarefas)):
@@ -16,7 +15,6 @@ def executar_processo(proc, comunicacao):
     
     proc.mudarEstado("Terminado")
     comunicacao.enviar(f"[IPC] {proc.nome} finalizado.")
-    # Sinaliza encerramento de estado ao processo principal da GUI
     comunicacao.enviar(("TERMINADO", proc.id))
 
 def distancia_manhattan(pos1, pos2):
@@ -30,7 +28,6 @@ def main():
     gerenciador = GerenciadorProcessos()
     comunicacao = Comunicacao()
 
-    # Configurações de exibição do Pygame
     TAM_CELULA = 32
     LARGURA_GRID = mapa.colunas * TAM_CELULA
     ALTURA_GRID = mapa.linhas * TAM_CELULA
@@ -42,19 +39,16 @@ def main():
     tela = pygame.display.set_mode((LARGURA_JANELA, ALTURA_JANELA))
     pygame.display.set_caption("Simulador SO - Concorrência IPC & Pygame")
     relogio = pygame.time.Clock()
-    fonte = pygame.font.SysFont("Consolas", 13)
+    fonte = pygame.font.SysFont("Consolas", 12)
 
-    # Carregamento / fallback de texturas
     try:
         img_ossos = pygame.image.load("ossos.png")
         img_ossos = pygame.transform.scale(img_ossos, (TAM_CELULA, TAM_CELULA))
     except Exception:
-        # Fallback visual caso 'ossos.png' não esteja presente no diretório
         img_ossos = pygame.Surface((TAM_CELULA, TAM_CELULA))
         img_ossos.fill((180, 50, 50))
 
-    # Inicialização das entidades (Agente e Subprocessos Estáticos)
-    pos_agente = [1, 2]  # Coordenada inicial do Agente Principal (P1)
+    pos_agente = [1, 2]
     
     sub_processos = [
         processo(2, "Kernel (K1)", (1, 16), ["Inic. Memória", "Drivers", "Syscalls"]),
@@ -67,15 +61,16 @@ def main():
 
     logs = ["=== Terminal de Log IPC ==="]
     jogo_rodando = True
+    vitoria = False  # Flag para bloquear movimentação ao final
 
     while jogo_rodando:
-        relogio.tick(30)  # Restrição rígida de 30 FPS
+        relogio.tick(30)
 
         # --- 1. Tratamento de Eventos e Input ---
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 jogo_rodando = False
-            elif evento.type == pygame.KEYDOWN:
+            elif evento.type == pygame.KEYDOWN and not vitoria:  # Bloqueia movimentação se vitoria == True
                 nova_linha, nova_coluna = pos_agente[0], pos_agente[1]
                 
                 if evento.key in (pygame.K_w, pygame.K_UP):
@@ -87,10 +82,8 @@ def main():
                 elif evento.key in (pygame.K_d, pygame.K_RIGHT):
                     nova_coluna += 1
 
-                # Validação de Colisão imediata por tecla pressionada
                 if mapa.mover(nova_linha, nova_coluna):
                     pos_agente = [nova_linha, nova_coluna]
-
 
         # --- 2. Lógica de Disparo por Proximidade ---
         for p in sub_processos:
@@ -98,9 +91,9 @@ def main():
                 if distancia_manhattan(pos_agente, p.posicao) <= 1:
                     p.iniciado = True
                     gerenciador.iniciarProcesso(p.id)
-                    logs.append(f"[GERENCIADOR] Distância <= 1. Disparando {p.nome}")
+                    logs.append(f"[SO] Proximidade! Start {p.nome}")
 
-        # --- 3. Processamento de Mensagens IPC da Fila ---
+        # --- 3. Processamento de Mensagens IPC ---
         msg = comunicacao.receber()
         while msg is not None:
             if isinstance(msg, tuple) and msg[0] == "TERMINADO":
@@ -111,14 +104,18 @@ def main():
                         p.mudarEstado("Terminado")
             else:
                 logs.append(str(msg))
-                if len(logs) > 30:  # Limite de mensagens mantidas na tela
-                    logs.pop(1)
             msg = comunicacao.receber()
 
         # --- 4. Checagem de Condição de Vitória ---
-        if mapa.chegouSaida(tuple(pos_agente), sub_processos):
-            logs.append("[SISTEMA] Saída liberada! Simulação Concluída.")
-            print("Sucesso: Agente alcançou a saída com todos os processos finalizados!")
+        if not vitoria and mapa.chegouSaida(tuple(pos_agente), sub_processos):
+            vitoria = True
+            logs.append("[SISTEMA] Saída liberada!")
+            logs.append("[SISTEMA] Simulação Concluída com Sucesso.")
+
+        # Manter histórico de logs dentro do limite vertical da janela
+        max_linhas_visiveis = (ALTURA_JANELA - 20) // 18
+        if len(logs) > max_linhas_visiveis:
+            logs = [logs[0]] + logs[-(max_linhas_visiveis - 1):]
 
         # --- 5. Renderização Gráfica ---
         tela.fill((20, 20, 20))
@@ -130,13 +127,34 @@ def main():
                 char = mapa.mapa[r][c]
                 
                 if char == "#":
-                    pygame.draw.rect(tela, (50, 50, 65), rect)
-                    pygame.draw.rect(tela, (30, 30, 40), rect, 1)
+                    tela.blit(texturas['parede'], rect)
                 elif (r, c) == mapa.saida:
-                    pygame.draw.rect(tela, (50, 200, 50), rect)  # Destaque Saída (S)
+                    tela.blit(texturas['saida'], rect)
                 else:
-                    pygame.draw.rect(tela, (220, 220, 220), rect)
-                    pygame.draw.rect(tela, (200, 200, 200), rect, 1)
+                    tela.blit(texturas['chao'], rect)
+
+        # Renderizar Subprocessos Estáticos
+        for p in sub_processos:
+            pr, pc = p.posicao
+            rect_proc = pygame.Rect(pc * TAM_CELULA, pr * TAM_CELULA, TAM_CELULA, TAM_CELULA)
+            
+            if p.estado == "Terminado":
+                tela.blit(texturas['ossos'], rect_proc)
+            else:
+                letra_proc = p.nome[0]  # Pega 'K', 'A' ou 'D'
+                tela.blit(texturas[letra_proc], rect_proc)
+                
+                # Se o processo foi disparado (em execução), desenha uma borda amarela em volta para destacar
+                if p.iniciado:
+                    pygame.draw.rect(tela, (220, 150, 30), rect_proc, 3)
+                
+                # Opcional: Manter a letra em cima da imagem
+                txt = fonte.render(letra_proc, True, (255, 255, 255))
+                tela.blit(txt, (pc * TAM_CELULA + 10, pr * TAM_CELULA + 8))
+
+        # Renderizar Agente Principal (P1)
+        rect_agente = pygame.Rect(pos_agente[1] * TAM_CELULA, pos_agente[0] * TAM_CELULA, TAM_CELULA, TAM_CELULA)
+        tela.blit(texturas['agente'], rect_agente)
 
         # Renderizar Subprocessos Estáticos
         for p in sub_processos:
@@ -151,24 +169,28 @@ def main():
                 txt = fonte.render(p.nome[0], True, (255, 255, 255))
                 tela.blit(txt, (pc * TAM_CELULA + 10, pr * TAM_CELULA + 8))
 
-        # Renderizar Agente Principal (P1)
+        # Renderizar Agente Principal
         rect_agente = pygame.Rect(pos_agente[1] * TAM_CELULA, pos_agente[0] * TAM_CELULA, TAM_CELULA, TAM_CELULA)
         pygame.draw.rect(tela, (230, 40, 40), rect_agente)
 
-        # Painel Lateral de Logs
+        # Renderizar Painel de Log com recorte para não estourar a largura
         rect_painel = pygame.Rect(LARGURA_GRID, 0, LARGURA_PAINEL, ALTURA_JANELA)
         pygame.draw.rect(tela, (10, 14, 20), rect_painel)
         pygame.draw.line(tela, (80, 80, 100), (LARGURA_GRID, 0), (LARGURA_GRID, ALTURA_JANELA), 2)
 
         y_offset = 10
         for log in logs:
-            surf_texto = fonte.render(log, True, (0, 230, 120))
+            # Trunca texto se for maior que a largura do painel
+            texto_formatado = log
+            if len(texto_formatado) > 38:
+                texto_formatado = texto_formatado[:35] + "..."
+            
+            surf_texto = fonte.render(texto_formatado, True, (0, 230, 120))
             tela.blit(surf_texto, (LARGURA_GRID + 10, y_offset))
             y_offset += 18
 
         pygame.display.flip()
 
-    # Finalização de processos pendentes ao fechar
     for p in sub_processos:
         gerenciador.finalizarProcesso(p.id)
     pygame.quit()

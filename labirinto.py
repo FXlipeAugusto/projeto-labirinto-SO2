@@ -22,10 +22,14 @@ class labirinto:
         self.saida = (13, 29)
 
     def mover(self, linha, coluna):
+        # Verifica as dimensões do labirinto
         if linha < 0 or linha >= self.linhas:
             return False
+
         if coluna < 0 or coluna >= self.colunas:
             return False
+
+        # Garante que QUALQUER caractere diferente de '#' seja transitável (incluindo K, A, D, S)
         return self.mapa[linha][coluna] != "#"
 
     def chegouSaida(self, posicao, processos_ativos):

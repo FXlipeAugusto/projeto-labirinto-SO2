@@ -1,3 +1,4 @@
+import queue  # Biblioteca padrão para tratamento de exceções de fila
 from multiprocessing import Queue
 
 class Comunicacao:
@@ -8,6 +9,8 @@ class Comunicacao:
         self.fila.put(mensagem)
 
     def receber(self):
-        if not self.fila.empty():
-            return self.fila.get()
-        return None
+        try:
+            # Tenta retirar da fila imediatamente. Se estiver vazia, gera erro controlado
+            return self.fila.get_nowait()
+        except queue.Empty:
+            return None
